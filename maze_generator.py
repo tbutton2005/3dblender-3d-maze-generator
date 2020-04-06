@@ -6,19 +6,11 @@
 #########################################################################################
 import bpy
 import random as rnd
+import numpy as nmp
  
-height = 21; #Maze's area height
-width = 21; #Maze's area wodth
+size = 11 #maze size
 
-height = width #Maze must be square
-
-if width <3 and heidht <3: #Maze must be not less than 3x3
-    width =3
-    height = 3
-
-#Maze's area height and area width must be odd
-height += height%2==0
-width += width%2==0
+assert size%2 == 1, 'Error: maze size must be odd.'
  
 #Area's objects
 wall = 0; #Wall
@@ -30,86 +22,56 @@ class cell: #Class that keeps cell coordinates
         self.x=x
         self.y=y;
 
-map = [[wall] * height for i in range(width)] #Area(matrix), where each element is wall
-
-#Generation grid, where each odd element is unvisided cell, and each even element is wall
-for i in range(height):
-    for j in range(width):
-        if i%2 != 0 and j%2 != 0 and i<height and j<width: #if this cell is odd and is within the walls
-            map[i][j] = unvisitedCell #then this is unvisited cell
+map = nmp.zeros((size,size))
             
 def getNeighbours(selectedCell): #Get neighbour cells coordinates
-    up = cell(selectedCell.x,selectedCell.y-2) 
-    down =  cell(selectedCell.x, selectedCell.y+2)
-    left = cell(selectedCell.x-2,selectedCell.y)
-    right = cell(selectedCell.x+2, selectedCell.y)
-    
-    all = [up, down, left, right] #All of the neighbour cells
-    neighbours=[] #Neighbour cells that is within the walls
-    
-    for i in range(4):
-        if all[i].x > 0 and all[i].x < width and all[i].y > 0 and all[i].y < height: #if neighbour cell is within the walls 
-            neighbours.append(all[i]) #then add it to neighbours
-            
-    return neighbours
-
-def unvisitedCount(): #Count unvisited cells
-    count = 0 #Amount of unvisited cells
-    
-    for i in range(height):
-        for j in range(width): 
-            if map[i][j] == unvisitedCell: #if this cell is unvisited
-                count+=1 #Up count
+    all =   [       cell(selectedCell.x,selectedCell.y-2), #up
+                    cell(selectedCell.x, selectedCell.y+2), #down
+                    cell(selectedCell.x-2,selectedCell.y), #left
+                    cell(selectedCell.x+2, selectedCell.y) #right
+            ] #Neighbour cells
                 
-    print("countdown: ",count) #Print countdown for draw beginning
+    neighbours = [] #neighbour cells within the walls
     
-    return count
-
-def DestroyWall(firstCell, lastCell): #Function for destroying the wall
-    if lastCell.x - firstCell.x == 2: #If first cell x less than x of last cell then last cell is on right side and first cell is on left side
-        map[lastCell.y][lastCell.x-1] = visitedCell #destroy the wall between the cells
-        return #exit 
-    if lastCell.y - firstCell.y==2: #if first cell y less than last cell y then last cell is upper than first cell 
-        map[lastCell.y-1][lastCell.x] = visitedCell #destroy the wall between the cells
-        return #Exit
-    if firstCell.x - lastCell.x==2: #If last cell x less than first cell x then first cell is on right and last cell is on left
-        map[firstCell.y][firstCell.x-1] = visitedCell #destroy the wall between the cells, marking cell as visited
-        return #exit the function
-    if firstCell.y - lastCell.y==2: #if fitch cell y more than last cell y then first cell is upper
-        map[firstCell.y-1][firstCell.x] = visitedCell #destroy the wall between the cells
-        return #exit the function
-
-#Generation of the ways
-currentCell = cell(rnd.randrange(0,width//2)*2+1,rnd.randrange(0,height//2)*2+1) #select random cell
-map[currentCell.y][currentCell.x] = visitedCell #mark selected cell as visited
-
-while unvisitedCount() > 0: #when all of the cells is not visited
-    forwardCell = currentCell #mark forward cell as current cell
+    for neighbourCell in all: #add neighbours that only within the walls
+        if neighbourCell.x > 0 and neighbourCell.x < size and neighbourCell.y > 0 and neighbourCell.y < size: #if neighbour cell is within the walls 
+            neighbours.append(neighbourCell)
     
-    neighbours = getNeighbours(currentCell) #get neighbour cells
-    currentCell = neighbours[rnd.randrange(0,len(neighbours))] #select random cell
+    return neighbours
+def generate_maze():
+    map = nmp.zeros((size,size))#Area(matrix), where each element is wall
+    map[1::2, 1::2] = unvisitedCell #Generate a grid, where each odd element is unvisided cell, and each even element is wall
 
-    if map[currentCell.y][currentCell.x] != visitedCell: #And if it is unvisited
-        DestroyWall(forwardCell, currentCell) #Delete the wall between the forward cell and current cell
-        map[currentCell.y][currentCell.x] = visitedCell #And mark this cell as visited
+    def isUnvisitedCells(): #Count unvisited cells
+        for line in map:
+            if unvisitedCell in line:
+                return True
+    
+        return False
+
+    #Generation of the ways
+    currentCell = cell(rnd.randrange(1,size-2, 2),rnd.randrange(1,size-2, 2)) #select random cell
+
+    while isUnvisitedCells(): #when all of the cells is not visited
+        forwardCell = currentCell #mark forward cell as current cell
+    
+        currentCell = rnd.choice(getNeighbours(currentCell)) #select random neighbour cell
+
+        if map[currentCell.y][currentCell.x] != visitedCell: #And if it is unvisited
+            map[currentCell.x-int((currentCell.x-forwardCell.x)/2)][currentCell.y-int((currentCell.y-forwardCell.y)/2)] = visitedCell #Delete the wall between the forward cell and current cell
+            map[currentCell.y][currentCell.x] = visitedCell #And mark this cell as visited
         
 
-#make random holes in the maze
-if (rnd.randrange(1)) == 0:
-    map[rnd.randrange((height-1)/2)*2+1][0] = visitedCell #bottom side
-else:
-    map[0][rnd.randrange((width-1)/2)*2+1] = visitedCell #left side
-if (rnd.randrange(1)) == 0:
-    map[rnd.randrange((height-1)/2)*2+1][width-1]=visitedCell #top side
-else: 
-    map[height-1][rnd.randrange((width-1)/2)*2+1]=visitedCell #right side
+    #make random holes in the maze
+    map[0][rnd.randrange(1,size-1,2)] = visitedCell
+    map[size-1][rnd.randrange(1,size-1,2)] = visitedCell
 
-#drawing maze
-print("wait for drawing a map");
+    #drawing maze
+    print("wait for drawing a map");
 
-for i in range(height): 
-    for j in range(width): 
-        if(map[i][j] == wall):
-            bpy.ops.mesh.primitive_cube_add(location=(j*2, i*2, 0)) #create a cube 1x1x1 with location j*2, i*2, 0
+    for i in range(size): 
+        for j in range(size): 
+            if(map[i][j] == wall):
+                bpy.ops.mesh.primitive_cube_add(location=(j*2, i*2, 0)) #create a cube 1x1x1 with location j*2, i*2, 0
                 
 
